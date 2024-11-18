@@ -73,6 +73,7 @@ export class FeedingService {
         }
 
         const now = new Date();
+        console.log(now);
         let fedOnce = false; // Flag para controlar a alimentação
 
         this.mealConfig.mealTimes.forEach((meal: { time: string; fed: boolean; lastFedDate: string }, index: number) => {
