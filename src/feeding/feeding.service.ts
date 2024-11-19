@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import axios from 'axios';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -6,6 +7,17 @@ import * as path from 'path';
 export class FeedingService {
     private mealConfig: any;
     private configFilePath = path.join(__dirname, 'data', 'meal-config.json');
+    private espIp: string | null = null; // Variável para armazenar o IP
+
+    // Método para definir o IP
+    setEspIp(ip: string): void {
+      this.espIp = ip;
+    }
+  
+    // Método para obter o IP armazenado
+    getEspIp(): string | null {
+      return this.espIp;
+    }
 
     constructor() {
         this.loadMealConfig();
@@ -47,9 +59,45 @@ export class FeedingService {
 
     // Método para simular a alimentação do pet
     async feed(): Promise<any> {
-        console.log('Pet alimentado com sucesso!');
-        return { message: 'Pet alimentado com sucesso!' };
+        const ipArduino = '192.168.0.91:80';  // Definindo o IP manualmente
+        
+        // Verifica se o IP do Arduino foi configurado
+        if (!ipArduino) {
+            throw new Error('IP do Arduino não encontrado. Certifique-se de que o IP foi definido corretamente.');
+        }
+    
+        try {
+            // Construindo a URL para enviar o comando ao Arduino
+            const url = `http://${ipArduino}/comando`;  // Ajuste conforme a rota do Arduino
+            
+            // Enviando uma requisição GET para o Arduino
+            const response = await axios.get(url, { timeout: 100000 });
+    
+            // Verifica se a resposta do servidor é bem-sucedida
+            if (response.status === 200) {
+                console.log('Resposta do Arduino:', response.data);  // Exibe a resposta do Arduino (opcional)
+                return { message: 'Comando enviado ao Arduino com sucesso!' };
+            } else {
+                throw new Error(`Erro ao comunicar com o Arduino. Status: ${response.status}`);
+            }
+        } catch (error) {
+            // Tratamento de erro melhorado
+            console.error('Erro ao enviar comando para o Arduino:', error);
+            
+            // Verificando se o erro veio do Axios ou é um erro genérico
+            if (error.response) {
+                // Se o erro é específico da resposta do servidor (erro HTTP)
+                return { message: `Erro do servidor Arduino: ${error.response.data || error.message}` };
+            } else if (error.request) {
+                // Se não recebeu resposta do servidor
+                return { message: 'Erro de conexão com o Arduino. Verifique o status da rede ou IP do dispositivo.' };
+            } else {
+                // Erro genérico
+                return { message: 'Erro desconhecido ao enviar comando ao Arduino.' };
+            }
+        }
     }
+    
 
     // Carrega a configuração de alimentação do arquivo
     private loadMealConfig() {
@@ -73,7 +121,7 @@ export class FeedingService {
         }
 
         const now = new Date();
-        console.log(now);
+
         let fedOnce = false; // Flag para controlar a alimentação
 
         this.mealConfig.mealTimes.forEach((meal: { time: string; fed: boolean; lastFedDate: string }, index: number) => {
